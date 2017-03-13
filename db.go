@@ -3,8 +3,8 @@ package tweeters
 import (
 	"bufio"
 	"encoding/binary"
-	"errors"
 	"io"
+	"os"
 
 	"github.com/unixpickle/essentials"
 )
@@ -17,8 +17,9 @@ type Record struct {
 	Body []byte
 }
 
-// WriteDB writes the entries in a format that ReadSamples
-// can interpret.
+// WriteDB writes the records to the database.
+//
+// The records should be grouped by username.
 func WriteDB(w io.Writer, records <-chan Record) (err error) {
 	defer essentials.AddCtxTo("write DB", &err)
 	bw := bufio.NewWriter(w)
@@ -37,63 +38,117 @@ func WriteDB(w io.Writer, records <-chan Record) (err error) {
 	return bw.Flush()
 }
 
-// ReadDB reads the entries from a database.
-//
-// Both channels are closed when reading is finished.
-//
-// The error channel is never sent an io.EOF.
-//
-// The records are guaranteed to arrive in order.
-func ReadDB(r io.Reader) (<-chan Record, <-chan error) {
-	records := make(chan Record, 32)
-	errs := make(chan error, 1)
+// DB is a read-only handle to a database.
+type DB struct {
+	userOffsets []int
+	file        *os.File
+	bufReader   *bufio.Reader
+}
 
-	byteRecords := make(chan []byte, 32)
-	byteErr := make(chan error, 1)
-	go func() {
-		defer close(byteRecords)
-		defer close(byteErr)
-		br := bufio.NewReader(r)
-		for {
-			var size int32
-			if err := binary.Read(br, dbByteOrder, &size); err == io.EOF {
-				return
-			} else if err != nil {
-				byteErr <- err
-				return
-			}
-			next := make([]byte, int(size))
-			if _, err := io.ReadFull(br, next); err != nil {
-				byteErr <- err
-				return
-			}
-			byteRecords <- next
+// OpenDB opens a database and builds an index for it.
+func OpenDB(path string) (db *DB, err error) {
+	defer essentials.AddCtxTo("open DB", &err)
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			f.Close()
 		}
 	}()
 
-	go func() {
-		defer close(records)
-		defer close(errs)
-		for {
-			user, ok := <-byteRecords
-			if !ok {
-				if err := <-byteErr; err != nil {
-					errs <- essentials.AddCtx("read DB", err)
-				}
-				return
-			}
-			body, ok := <-byteRecords
-			if !ok {
-				if err := <-byteErr; err != nil {
-					errs <- essentials.AddCtx("read DB", err)
-				} else {
-					errs <- essentials.AddCtx("read DB", errors.New("unexpected EOF"))
-				}
-				return
-			}
-			records <- Record{User: user, Body: body}
-		}
-	}()
+	db = &DB{file: f, bufReader: bufio.NewReader(f)}
+	if err := db.buildIndex(); err != nil {
+		return nil, err
+	}
+	return db, nil
+}
 
-	return records, errs
+// NumUsers returns the number of users in the database.
+func (d *DB) NumUsers() int {
+	return len(d.userOffsets)
+}
+
+// Read reads the records for a user, which is identified
+// by index.
+func (d *DB) Read(userIdx int) (records []Record, err error) {
+	defer essentials.AddCtxTo("read DB record", &err)
+	off := d.userOffsets[userIdx]
+	if _, err := d.file.Seek(int64(off), io.SeekStart); err != nil {
+		return nil, err
+	}
+	d.bufReader.Reset(d.file)
+	var lastUser string
+	for {
+		username, err := d.readField()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		if len(records) == 0 {
+			lastUser = string(username)
+		} else if string(username) != lastUser {
+			break
+		}
+		body, err := d.readField()
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, Record{User: username, Body: body})
+	}
+	return
+}
+
+// Close closes the database handle.
+func (d *DB) Close() error {
+	return d.file.Close()
+}
+
+func (d *DB) buildIndex() error {
+	var lastUsername string
+	var offset int
+	for {
+		username, err := d.readField()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+		if string(username) != lastUsername {
+			lastUsername = string(username)
+			d.userOffsets = append(d.userOffsets, offset)
+		}
+		offset += len(username) + 4
+		n, err := d.skipField()
+		if err != nil {
+			return err
+		}
+		offset += n
+	}
+	return nil
+}
+
+func (d *DB) readField() ([]byte, error) {
+	var size int32
+	if err := binary.Read(d.bufReader, dbByteOrder, &size); err != nil {
+		return nil, err
+	}
+	next := make([]byte, int(size))
+	if _, err := io.ReadFull(d.bufReader, next); err != nil {
+		return nil, err
+	}
+	return next, nil
+}
+
+func (d *DB) skipField() (int, error) {
+	var size int32
+	if err := binary.Read(d.bufReader, dbByteOrder, &size); err != nil {
+		return 0, err
+	}
+	if _, err := d.bufReader.Discard(int(size)); err != nil {
+		return 0, err
+	}
+	return int(size) + 4, nil
 }

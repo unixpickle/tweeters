@@ -49,13 +49,14 @@ func main() {
 	}
 
 	log.Println("Loading samples...")
-	samples, err := tweeters.ReadSamples(samplesPath)
+	db, err := tweeters.OpenDB(samplesPath)
 	if err != nil {
 		essentials.Die(err)
 	}
+	samples := tweeters.NewSamples(db)
 	training, testing := samples.Partition(validation)
-	log.Printf("Samples: %d/%d training/testing users", len(training.Users),
-		len(testing.Users))
+	log.Printf("Samples: %d/%d training/testing users", len(training.UserIndices),
+		len(testing.UserIndices))
 
 	trainer.Samples = training
 
@@ -70,7 +71,10 @@ func main() {
 		if iter%4 == 0 {
 			validator := trainer
 			validator.Samples = testing
-			batch, _ := validator.Fetch(sgd.Samples)
+			batch, err := validator.Fetch(sgd.Samples)
+			if err != nil {
+				essentials.Die(err)
+			}
 			cost := anyvec.Sum(validator.TotalCost(batch.(*Batch)).Output())
 			log.Printf("iter %d: cost=%v validation=%v", iter, trainer.LastCost, cost)
 		} else {
@@ -104,7 +108,10 @@ type Trainer struct {
 // Fetch produces a random batch of samples, using the
 // length of s as the soft-limit on the batch size.
 func (t *Trainer) Fetch(s anysgd.SampleList) (anysgd.Batch, error) {
-	tweets, avg, out := t.Samples.Batch(t.UserProb, s.Len(), t.MinTweets, t.MaxTweets)
+	tweets, avg, out, err := t.Samples.Batch(t.UserProb, s.Len(), t.MinTweets, t.MaxTweets)
+	if err != nil {
+		return nil, err
+	}
 	cr := t.Model.Parameters()[0].Vector.Creator()
 	return &Batch{
 		Tweets: tweets,

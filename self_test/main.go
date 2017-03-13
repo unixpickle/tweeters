@@ -27,11 +27,13 @@ func main() {
 		essentials.Die("Required flag: -data. See -help.")
 	}
 
-	fmt.Println("Loading samples...")
-	data, err := tweeters.ReadSamples(dataPath)
+	fmt.Println("Opening samples...")
+	db, err := tweeters.OpenDB(dataPath)
 	if err != nil {
 		essentials.Die(err)
 	}
+	defer db.Close()
+	data := tweeters.NewSamples(db)
 	fmt.Println()
 	fmt.Println(Separator)
 	fmt.Println()
@@ -42,10 +44,17 @@ func main() {
 
 	var total, correct int
 	for {
-		tweets := data.RandomUserTweets(minTweets, maxTweets)
+		tweets, err := data.RandomUserTweets(minTweets, maxTweets)
+		if err != nil {
+			essentials.Die(err)
+		}
 		same := rand.Intn(2) == 0
 		if !same {
-			tweets[len(tweets)-1] = data.RandomUserTweets(1, 1)[0]
+			other, err := data.RandomUserTweets(1, 1)
+			if err != nil {
+				essentials.Die(err)
+			}
+			tweets[len(tweets)-1] = other[0]
 		}
 		for _, tweet := range tweets[:len(tweets)-1] {
 			fmt.Println(string(tweet))

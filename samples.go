@@ -1,68 +1,41 @@
 package tweeters
 
 import (
-	"crypto/md5"
 	"math/rand"
-	"os"
 
 	"github.com/unixpickle/essentials"
 )
 
-// Samples stores a list of users and tweets by those
-// users.
+// Samples provides high-level access to the tweets in a
+// DB.
 type Samples struct {
-	Users  []string
-	Tweets map[string][][]byte
+	DB *DB
+
+	// A list of the users to sample from.
+	//
+	// This might not include all users in the case of a
+	// partitioned sample list.
+	UserIndices []int
 }
 
-// ReadSamples loads tweets from a database file, which
-// can be created by running a CSV file through the
-// build_db tool.
-func ReadSamples(dbPath string) (samples *Samples, err error) {
-	defer essentials.AddCtxTo("read samples", &err)
-
-	f, err := os.Open(dbPath)
-	if err != nil {
-		return nil, err
+// NewSamples creates a Samples with all of the user
+// indices in a DB.
+func NewSamples(db *DB) *Samples {
+	res := &Samples{DB: db, UserIndices: make([]int, db.NumUsers())}
+	for i := 0; i < db.NumUsers(); i++ {
+		res.UserIndices[i] = i
 	}
-	defer f.Close()
-
-	records, errChan := ReadDB(f)
-	lastUser := ""
-	res := &Samples{Tweets: map[string][][]byte{}}
-	for record := range records {
-		userStr := string(record.User)
-		if userStr != lastUser {
-			lastUser = userStr
-			res.Users = append(res.Users, lastUser)
-		}
-		res.Tweets[userStr] = append(res.Tweets[userStr], record.Body)
-	}
-	if err := <-errChan; err != nil {
-		return nil, err
-	}
-	return res, nil
+	return res
 }
 
-// Partition splits the data up by username in a
+// Partition splits the samples up by user in a
 // pseudo-random (but deterministic) way.
 func (s *Samples) Partition(testingFrac float64) (training, testing *Samples) {
-	var trainingUsers, testingUsers []string
-	for _, user := range s.Users {
-		hash := md5.Sum([]byte(user))
-		if float64(hash[0]) < testingFrac*0x100 {
-			testingUsers = append(testingUsers, user)
-		} else {
-			trainingUsers = append(trainingUsers, user)
-		}
-	}
-	return &Samples{
-			Users:  trainingUsers,
-			Tweets: s.Tweets,
-		}, &Samples{
-			Users:  testingUsers,
-			Tweets: s.Tweets,
-		}
+	src := rand.NewSource(1337)
+	users := rand.New(src).Perm(s.DB.NumUsers())
+	testingCount := int(float64(len(users)) * testingFrac)
+	return &Samples{DB: s.DB, UserIndices: users[testingCount:]},
+		&Samples{DB: s.DB, UserIndices: users[:testingCount]}
 }
 
 // Batch produces a training or validation batch.
@@ -86,16 +59,23 @@ func (s *Samples) Partition(testingFrac float64) (training, testing *Samples) {
 // Model.Averages, the output of which is then meant to be
 // fed into the classifier.
 func (s *Samples) Batch(p float64, batchSize, min, max int) (tweets [][]byte, avg []int,
-	outs []float64) {
+	outs []float64, err error) {
 	if min < 2 {
 		panic("invalid min argument")
 	}
 	for len(tweets) < batchSize {
-		t := s.RandomUserTweets(min, max)
+		t, err := s.RandomUserTweets(min, max)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		if rand.Float64() < p {
 			outs = append(outs, 1)
 		} else {
-			t[len(t)-1] = s.RandomUserTweets(1, 1)[0]
+			newTs, err := s.RandomUserTweets(1, 1)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			t[len(t)-1] = newTs[0]
 			outs = append(outs, 0)
 		}
 		tweets = append(tweets, t...)
@@ -109,18 +89,23 @@ func (s *Samples) Batch(p float64, batchSize, min, max int) (tweets [][]byte, av
 //
 // The min and max arguments limit the number of tweets to
 // the range [min, max].
-func (s *Samples) RandomUserTweets(min, max int) [][]byte {
+func (s *Samples) RandomUserTweets(min, max int) ([][]byte, error) {
 	for {
-		tweets := s.Tweets[s.Users[rand.Intn(len(s.Users))]]
-		if len(tweets) < min {
+		userIdx := s.UserIndices[rand.Intn(len(s.UserIndices))]
+		records, err := s.DB.Read(userIdx)
+		if err != nil {
+			return nil, err
+		}
+		if len(records) < min {
 			continue
 		}
-		maxCount := essentials.MinInt(max, len(tweets))
-		randIdx := rand.Perm(len(tweets))[:min+rand.Intn(maxCount-(min-1))]
+		clippedMax := essentials.MinInt(max, len(records))
+		numTake := min + rand.Intn(clippedMax-(min-1))
+		randIdx := rand.Perm(len(records))[:numTake]
 		res := make([][]byte, len(randIdx))
 		for i, j := range randIdx {
-			res[i] = tweets[j]
+			res[i] = records[j].Body
 		}
-		return res
+		return res, nil
 	}
 }
