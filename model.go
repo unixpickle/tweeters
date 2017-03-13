@@ -2,6 +2,7 @@ package tweetures
 
 import (
 	"github.com/unixpickle/anydiff"
+	"github.com/unixpickle/anydiff/anyseq"
 	"github.com/unixpickle/anynet"
 	"github.com/unixpickle/anynet/anyrnn"
 	"github.com/unixpickle/anyvec"
@@ -50,6 +51,36 @@ func DeserializeModel(d []byte) (*Model, error) {
 	return &res, nil
 }
 
+// Encode produces latent vectors for all of the tweets.
+// The latent vectors are packed into a single result.
+func (m *Model) Encode(tweets [][]byte) anydiff.Res {
+	creator := m.creator()
+	var batches []*anyseq.Batch
+	var idx int
+	for {
+		var oneHot []float64
+		var present []bool
+		for _, tweet := range tweets {
+			pres := idx < len(tweet)
+			present = append(present, pres)
+			if pres {
+				oh := make([]float64, 0x100)
+				oh[tweet[idx]] = 1
+				oneHot = append(oneHot, oh...)
+			}
+		}
+		if len(oneHot) == 0 {
+			break
+		}
+		batches = append(batches, &anyseq.Batch{
+			Present: present,
+			Packed:  creator.MakeVectorData(creator.MakeNumericList(oneHot)),
+		})
+	}
+	constIn := anyseq.ConstSeq(creator, batches)
+	return anyseq.Tail(anyrnn.Map(constIn, m.Encoder))
+}
+
 // Parameters returns the model's parameters.
 func (m *Model) Parameters() []*anydiff.Var {
 	var res []*anydiff.Var
@@ -70,4 +101,8 @@ func (m *Model) SerializerType() string {
 // Serialize serializes the Model.
 func (m *Model) Serialize() ([]byte, error) {
 	return serializer.SerializeAny(m.Encoder, m.Classifier)
+}
+
+func (m *Model) creator() anyvec.Creator {
+	return m.Parameters()[0].Vector.Creator()
 }
