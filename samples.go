@@ -95,7 +95,7 @@ func (s *Samples) Batch(p float64, batchSize, min, max int) (tweets [][]byte, av
 		if rand.Float64() < p {
 			outs = append(outs, 1)
 		} else {
-			t[len(t)-1] = s.randomTweet()
+			t[len(t)-1] = s.RandomUserTweets(1, 1)[0]
 			outs = append(outs, 0)
 		}
 		tweets = append(tweets, t...)
@@ -123,9 +123,4 @@ func (s *Samples) RandomUserTweets(min, max int) [][]byte {
 		}
 		return res
 	}
-}
-
-func (s *Samples) randomTweet() []byte {
-	tw := s.Tweets[s.Users[rand.Intn(len(s.Users))]]
-	return tw[rand.Intn(len(tw))]
 }
