@@ -76,6 +76,7 @@ func (m *Model) Encode(tweets [][]byte) anydiff.Res {
 			Present: present,
 			Packed:  creator.MakeVectorData(creator.MakeNumericList(oneHot)),
 		})
+		idx++
 	}
 	constIn := anyseq.ConstSeq(creator, batches)
 	return anyseq.Tail(anyrnn.Map(constIn, m.Encoder))
