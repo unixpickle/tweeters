@@ -81,6 +81,33 @@ func (m *Model) Encode(tweets [][]byte) anydiff.Res {
 	return anyseq.Tail(anyrnn.Map(constIn, m.Encoder))
 }
 
+// Averages is like Encode, but it averages groups of
+// latent vectors.
+//
+// The avgSizes slice specifies the size for each average.
+// Averages are always taken over consecutive vectors.
+// For example, if avgSlices is [1, 3, 2], then the first
+// vector, an average of the next three vectors, and an
+// average of the next two vectors are returned.
+// The sum of all the average sizes should equal the total
+// number of tweets.
+func (m *Model) Averages(tweets [][]byte, avgSizes []int) anydiff.Res {
+	latent := m.Encode(tweets)
+	return anydiff.Pool(latent, func(latent anydiff.Res) anydiff.Res {
+		latentSize := latent.Output().Len() / len(tweets)
+		offset := 0
+		var res []anydiff.Res
+		for _, size := range avgSizes {
+			subset := anydiff.Slice(latent, offset, offset+size*latentSize)
+			offset += size * latentSize
+			mat := &anydiff.Matrix{Data: subset, Rows: size, Cols: latentSize}
+			sum := anydiff.SumRows(mat)
+			res = append(res, sum)
+		}
+		return anydiff.Concat(res...)
+	})
+}
+
 // Parameters returns the model's parameters.
 func (m *Model) Parameters() []*anydiff.Var {
 	var res []*anydiff.Var
