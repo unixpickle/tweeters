@@ -45,10 +45,10 @@ func WriteDB(w io.Writer, records <-chan Record) (err error) {
 //
 // The records are guaranteed to arrive in order.
 func ReadDB(r io.Reader) (<-chan Record, <-chan error) {
-	records := make(chan Record, 1)
+	records := make(chan Record, 32)
 	errs := make(chan error, 1)
 
-	byteRecords := make(chan []byte, 1)
+	byteRecords := make(chan []byte, 32)
 	byteErr := make(chan error, 1)
 	go func() {
 		defer close(byteRecords)
