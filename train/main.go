@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"log"
+	"math/rand"
+	"time"
 
 	"github.com/unixpickle/anydiff"
 	"github.com/unixpickle/anynet"
@@ -16,6 +18,8 @@ import (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	var trainer Trainer
 	var sgd anysgd.SGD
 	var modelPath string
