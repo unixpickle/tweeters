@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/unixpickle/essentials"
 )
@@ -43,6 +44,7 @@ type DB struct {
 	userOffsets []int
 	file        *os.File
 	bufReader   *bufio.Reader
+	lock        sync.Mutex
 }
 
 // OpenDB opens a database and builds an index for it.
@@ -73,6 +75,9 @@ func (d *DB) NumUsers() int {
 // Read reads the records for a user, which is identified
 // by index.
 func (d *DB) Read(userIdx int) (records []Record, err error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	defer essentials.AddCtxTo("read DB record", &err)
 	off := d.userOffsets[userIdx]
 	if _, err := d.file.Seek(int64(off), io.SeekStart); err != nil {
