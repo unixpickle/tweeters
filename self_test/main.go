@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/unixpickle/essentials"
-	"github.com/unixpickle/tweetures"
+	"github.com/unixpickle/tweeters"
 )
 
 const Separator = "---------------"
@@ -28,7 +28,7 @@ func main() {
 	}
 
 	fmt.Println("Loading samples...")
-	data, err := tweetures.ReadSamples(dataPath)
+	data, err := tweeters.ReadSamples(dataPath)
 	if err != nil {
 		essentials.Die(err)
 	}

@@ -1,4 +1,4 @@
-package tweetures
+package tweeters
 
 import (
 	"github.com/unixpickle/anydiff"
@@ -122,7 +122,7 @@ func (m *Model) Parameters() []*anydiff.Var {
 // SerializerType returns the unique ID used to serialize
 // a Model with the serializer package.
 func (m *Model) SerializerType() string {
-	return "github.com/unixpickle/tweetures.Model"
+	return "github.com/unixpickle/tweeters.Model"
 }
 
 // Serialize serializes the Model.

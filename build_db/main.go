@@ -15,7 +15,7 @@ import (
 	"sort"
 
 	"github.com/unixpickle/essentials"
-	"github.com/unixpickle/tweetures"
+	"github.com/unixpickle/tweeters"
 )
 
 func main() {
@@ -65,20 +65,20 @@ func main() {
 	defer dbFile.Close()
 
 	log.Println("Writing output...")
-	records := make(chan tweetures.Record, 1)
+	records := make(chan tweeters.Record, 1)
 	go func() {
 		defer close(records)
 		for _, user := range usernames {
 			userBytes := []byte(user)
 			for _, tweet := range mapping[user] {
-				records <- tweetures.Record{
+				records <- tweeters.Record{
 					User: userBytes,
 					Body: tweet,
 				}
 			}
 		}
 	}()
-	if err := tweetures.WriteDB(dbFile, records); err != nil {
+	if err := tweeters.WriteDB(dbFile, records); err != nil {
 		essentials.Die(err)
 	}
 }

@@ -1,4 +1,4 @@
-package tweetures
+package tweeters
 
 import (
 	"crypto/md5"
