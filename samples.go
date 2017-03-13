@@ -2,6 +2,7 @@ package tweetures
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/csv"
 	"errors"
 	"io"
@@ -89,4 +90,25 @@ func ReadSamples(csvPath string) (samples *Samples, err error) {
 	}
 
 	return
+}
+
+// Partition splits the data up by username in a
+// pseudo-random but deterministic way.
+func (s *Samples) Partition(testingFrac float64) (training, testing *Samples) {
+	var trainingUsers, testingUsers []string
+	for _, user := range s.Users {
+		hash := md5.Sum([]byte(user))
+		if float64(hash[0]) < testingFrac*0x100 {
+			testingUsers = append(testingUsers, user)
+		} else {
+			trainingUsers = append(trainingUsers, user)
+		}
+	}
+	return &Samples{
+			Users:  trainingUsers,
+			Tweets: s.Tweets,
+		}, &Samples{
+			Users:  testingUsers,
+			Tweets: s.Tweets,
+		}
 }
