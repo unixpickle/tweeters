@@ -75,16 +75,23 @@ func (s *Samples) Partition(testingFrac float64) (training, testing *Samples) {
 // The batchSize is a soft-limit, not an absolute
 // requirement.
 //
+// The min and max arguments specify the minimum and
+// maximum number of tweets to select for one user.
+// The min argument must be at least 2.
+//
 // The batch has three components: a list of tweets, a
 // list of average sizes, and a vector of desired
 // classifier outputs.
 // The tweets and average sizes are meant to be passed to
 // Model.Averages, the output of which is then meant to be
 // fed into the classifier.
-func (s *Samples) Batch(p float64, batchSize int) (tweets [][]byte, avg []int,
+func (s *Samples) Batch(p float64, batchSize, min, max int) (tweets [][]byte, avg []int,
 	outs []float64) {
+	if min < 2 {
+		panic("invalid min argument")
+	}
 	for len(tweets) < batchSize {
-		t := s.randomUserTweets()
+		t := s.RandomUserTweets(min, max)
 		if rand.Float64() < p {
 			outs = append(outs, 1)
 		} else {
@@ -97,14 +104,25 @@ func (s *Samples) Batch(p float64, batchSize int) (tweets [][]byte, avg []int,
 	return
 }
 
-func (s *Samples) randomUserTweets() [][]byte {
-	tweets := s.Tweets[s.Users[rand.Intn(len(s.Users))]]
-	randIdx := rand.Perm(len(tweets))[:2+rand.Intn(len(tweets)-2)]
-	res := make([][]byte, len(randIdx))
-	for i, j := range randIdx {
-		res[i] = tweets[j]
+// RandomUserTweets randomly selects a subset of a random
+// user's tweets.
+//
+// The min and max arguments limit the number of tweets to
+// the range [min, max].
+func (s *Samples) RandomUserTweets(min, max int) [][]byte {
+	for {
+		tweets := s.Tweets[s.Users[rand.Intn(len(s.Users))]]
+		if len(tweets) < min {
+			continue
+		}
+		maxCount := essentials.MinInt(max, len(tweets))
+		randIdx := rand.Perm(len(tweets))[:min+rand.Intn(maxCount-(min-1))]
+		res := make([][]byte, len(randIdx))
+		for i, j := range randIdx {
+			res[i] = tweets[j]
+		}
+		return res
 	}
-	return res
 }
 
 func (s *Samples) randomTweet() []byte {

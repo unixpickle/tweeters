@@ -24,3 +24,9 @@ Hopefully, the network will learn that different users write about different thi
 The model will probably perform better than random guessing. I'm not too worried about overfitting, since I have so much [tweet data](https://github.com/unixpickle/tweetdump).
 
 I doubt that the latent features will be easy to interpret. However, I am optimistic that they will be useful for tasks like sentiment analysis. In a [separate project](https://github.com/unixpickle/rwa/tree/master/experiments/sentiment), I got a character-level language model to perform sentiment analysis. This makes me optimistic about the abilities of a character-level encoder.
+
+# Self-test
+
+I evaluated myself on the classification task to see how well I could do. For users with >1 tweet, I got 58/100 (58%). For many of the users, I only saw one tweet and then had to guess about a second tweet. This task seemed difficult, so I modified the code to filter out users with only two tweets. For users with >2 tweets, I got 36/50 (72%).
+
+Now I am less confident that the model will learn about the contents of tweets. I often made decisions based solely on style (capitalization, usage of emojis, etc.). I suspect the model will focus more on style than content. However, when tweets were sports-related or relationship-related, I was generally able to make content-based predictions.
