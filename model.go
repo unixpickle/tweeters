@@ -28,7 +28,7 @@ type Model struct {
 func NewModel(c anyvec.Creator) *Model {
 	return &Model{
 		Encoder: anyrnn.Stack{
-			anyrnn.NewLSTM(c, 0x100, 0x200),
+			anyrnn.NewLSTM(c, 0x100, 0x200).ScaleInWeights(c.MakeNumeric(0x10)),
 			anyrnn.NewLSTM(c, 0x200, 0x200),
 			anyrnn.NewLSTM(c, 0x200, 0x200),
 		},
