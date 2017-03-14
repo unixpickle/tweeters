@@ -103,7 +103,8 @@ func (m *Model) Averages(tweets [][]byte, avgSizes []int) anydiff.Res {
 			offset += size * latentSize
 			mat := &anydiff.Matrix{Data: subset, Rows: size, Cols: latentSize}
 			sum := anydiff.SumRows(mat)
-			res = append(res, sum)
+			divisor := sum.Output().Creator().MakeNumeric(1 / float64(size))
+			res = append(res, anydiff.Scale(sum, divisor))
 		}
 		return anydiff.Concat(res...)
 	})
