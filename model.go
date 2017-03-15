@@ -29,15 +29,15 @@ func NewModel(c anyvec.Creator) *Model {
 	return &Model{
 		Encoder: anyrnn.Stack{
 			anyrnn.NewLSTM(c, 0x100, 0x200).ScaleInWeights(c.MakeNumeric(0x10)),
-			anyrnn.NewLSTM(c, 0x200, 0x200),
-			anyrnn.NewLSTM(c, 0x200, 0x200),
+			anyrnn.NewLSTM(c, 0x200, 0x200).ScaleInWeights(c.MakeNumeric(2)),
+			anyrnn.NewLSTM(c, 0x200, 0x200).ScaleInWeights(c.MakeNumeric(2)),
 		},
 		Classifier: anynet.Net{
-			anynet.NewFC(c, 0x200*2, 0x100),
+			anynet.NewFC(c, 0x200*2, 0x200),
 			anynet.Tanh,
-			anynet.NewFC(c, 0x100, 0x80),
+			anynet.NewFC(c, 0x200, 0x100),
 			anynet.Tanh,
-			anynet.NewFC(c, 0x80, 1),
+			anynet.NewFCZero(c, 0x100, 1),
 		},
 	}
 }
