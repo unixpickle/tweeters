@@ -26,6 +26,7 @@ func main() {
 	var samplesPath string
 	var stepSize float64
 	var validation float64
+	var hidden int
 
 	flag.StringVar(&modelPath, "out", "model_out", "path to model file")
 	flag.StringVar(&samplesPath, "data", "", "path to tweet database")
@@ -35,6 +36,7 @@ func main() {
 	flag.IntVar(&trainer.MaxTweets, "max", 16, "maximum tweets per user")
 	flag.Float64Var(&trainer.UserProb, "prob", 0.5, "probability of same user")
 	flag.Float64Var(&validation, "validation", 0.1, "validation fraction")
+	flag.IntVar(&hidden, "hidden", 512, "state size for new networks")
 	flag.Parse()
 
 	if samplesPath == "" {
@@ -45,7 +47,7 @@ func main() {
 		log.Println("Loaded model.")
 	} else {
 		log.Println("Creating new model...")
-		trainer.Model = tweeters.NewModel(anyvec32.CurrentCreator())
+		trainer.Model = tweeters.NewModel(anyvec32.CurrentCreator(), hidden)
 	}
 
 	log.Println("Loading samples...")

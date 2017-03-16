@@ -25,15 +25,15 @@ type Model struct {
 }
 
 // NewModel creates a randomly-initialized model.
-func NewModel(c anyvec.Creator) *Model {
+func NewModel(c anyvec.Creator, hidden int) *Model {
 	return &Model{
 		Encoder: anyrnn.Stack{
-			anyrnn.NewLSTM(c, 0x100, 0x200).ScaleInWeights(c.MakeNumeric(0x10)),
-			anyrnn.NewLSTM(c, 0x200, 0x200).ScaleInWeights(c.MakeNumeric(2)),
-			anyrnn.NewLSTM(c, 0x200, 0x200).ScaleInWeights(c.MakeNumeric(2)),
+			anyrnn.NewLSTM(c, 0x100, hidden).ScaleInWeights(c.MakeNumeric(0x10)),
+			anyrnn.NewLSTM(c, hidden, hidden).ScaleInWeights(c.MakeNumeric(2)),
+			anyrnn.NewLSTM(c, hidden, hidden).ScaleInWeights(c.MakeNumeric(2)),
 		},
 		Classifier: anynet.Net{
-			anynet.NewFC(c, 0x200*2, 0x200),
+			anynet.NewFC(c, hidden*2, 0x200),
 			anynet.Tanh,
 			anynet.NewFC(c, 0x200, 0x100),
 			anynet.Tanh,
