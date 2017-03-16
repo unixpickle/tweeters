@@ -30,3 +30,13 @@ I doubt that the latent features will be easy to interpret. However, I am optimi
 I evaluated myself on the classification task to see how well I could do. For users with >1 tweet, I got 58/100 (58%). For many of the users, I only saw one tweet and then had to guess about a second tweet. This task seemed difficult, so I modified the code to filter out users with only two tweets. For users with >2 tweets, I got 36/50 (72%).
 
 Now I am less confident that the model will learn about the contents of tweets. I often made decisions based solely on style (capitalization, usage of emojis, etc.). I suspect the model will focus more on style than content. However, when tweets were sports-related or relationship-related, I was generally able to make content-based predictions.
+
+# Results
+
+**TL;DR:** the model achieved 74.5% accuracy (tested on 7230 validation samples). This is close to my self-test results.
+
+Initially, the model learned nothing. It never got better than a cross-entropy of *ln(1/2)*, which is random guessing. I looked at activations throughout the stabilized network, and was discouraged to find that the encoder was producing unvaried (collapsed) outputs.
+
+To address the lack of learning, I resorted to pre-training. Ironically, I used an already-trained model from [tweetenc](https://github.com/unixpickle/tweetenc). See the [repurpose](repurpose) command for details on how I converted the tweetenc model.
+
+After repurposing tweetenc, I also found that I had to use a lower learning rate. With a learning rate of 0.001, it seemed that the learned weights from tweetenc initially helped (got cross-entropy down by around 0.02), but eventually the model collapsed back to random guessing. I succeeded with a learning rate of 0.0001. I also used a larger batch size of 128. Eventually I increased the batch size to 256, which did not hurt performance at all on my Titan X, but it didn't seem to help very much either.
