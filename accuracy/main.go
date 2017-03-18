@@ -40,6 +40,7 @@ func main() {
 	if err := serializer.LoadAny(modelPath, &model); err != nil {
 		essentials.Die(err)
 	}
+	model.SetDropout(false)
 
 	log.Println("Loading DB...")
 	db, err := tweeters.OpenDB(dbPath)

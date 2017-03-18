@@ -25,12 +25,21 @@ type Model struct {
 }
 
 // NewModel creates a randomly-initialized model.
-func NewModel(c anyvec.Creator, hidden int) *Model {
+func NewModel(c anyvec.Creator, hidden int, dropout float64) *Model {
 	return &Model{
 		Encoder: anyrnn.Stack{
 			anyrnn.NewLSTM(c, 0x100, hidden).ScaleInWeights(c.MakeNumeric(0x10)),
+			&anyrnn.LayerBlock{
+				Layer: &anynet.Dropout{Enabled: false, KeepProb: dropout},
+			},
 			anyrnn.NewLSTM(c, hidden, hidden).ScaleInWeights(c.MakeNumeric(2)),
+			&anyrnn.LayerBlock{
+				Layer: &anynet.Dropout{Enabled: false, KeepProb: dropout},
+			},
 			anyrnn.NewLSTM(c, hidden, hidden).ScaleInWeights(c.MakeNumeric(2)),
+			&anyrnn.LayerBlock{
+				Layer: &anynet.Dropout{Enabled: false, KeepProb: dropout},
+			},
 		},
 		Classifier: anynet.Net{
 			anynet.NewFC(c, hidden*2, 0x200),
@@ -49,6 +58,16 @@ func DeserializeModel(d []byte) (*Model, error) {
 		return nil, essentials.AddCtx("deserialize model", err)
 	}
 	return &res, nil
+}
+
+// SetDropout enables or disables dropout.
+func (m *Model) SetDropout(enabled bool) {
+	for _, block := range m.Encoder.(anyrnn.Stack) {
+		if layer, ok := block.(*anyrnn.LayerBlock); ok {
+			do := layer.Layer.(*anynet.Dropout)
+			do.Enabled = enabled
+		}
+	}
 }
 
 // Encode produces latent vectors for all of the tweets.

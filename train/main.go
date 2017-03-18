@@ -27,6 +27,7 @@ func main() {
 	var stepSize float64
 	var validation float64
 	var hidden int
+	var dropout float64
 
 	flag.StringVar(&modelPath, "out", "model_out", "path to model file")
 	flag.StringVar(&samplesPath, "data", "", "path to tweet database")
@@ -37,6 +38,7 @@ func main() {
 	flag.Float64Var(&trainer.UserProb, "prob", 0.5, "probability of same user")
 	flag.Float64Var(&validation, "validation", 0.1, "validation fraction")
 	flag.IntVar(&hidden, "hidden", 512, "state size for new networks")
+	flag.Float64Var(&dropout, "dropout", 1, "dropout keep probability")
 	flag.Parse()
 
 	if samplesPath == "" {
@@ -47,8 +49,9 @@ func main() {
 		log.Println("Loaded model.")
 	} else {
 		log.Println("Creating new model...")
-		trainer.Model = tweeters.NewModel(anyvec32.CurrentCreator(), hidden)
+		trainer.Model = tweeters.NewModel(anyvec32.CurrentCreator(), hidden, dropout)
 	}
+	trainer.Model.SetDropout(true)
 
 	log.Println("Loading samples...")
 	db, err := tweeters.OpenDB(samplesPath)
