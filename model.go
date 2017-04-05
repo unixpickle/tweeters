@@ -106,7 +106,7 @@ func (m *Model) Encode(tweets [][]byte) anydiff.Res {
 //
 // The avgSizes slice specifies the size for each average.
 // Averages are always taken over consecutive vectors.
-// For example, if avgSlices is [1, 3, 2], then the first
+// For example, if avgSizes is [1, 3, 2], then the first
 // vector, an average of the next three vectors, and an
 // average of the next two vectors are returned.
 // The sum of all the average sizes should equal the total
