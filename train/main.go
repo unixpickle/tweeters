@@ -141,7 +141,7 @@ func (t *Trainer) Gradient(batch anysgd.Batch) anydiff.Grad {
 
 	c := cost.Output().Creator()
 	one := cost.Output().Creator().MakeVector(1)
-	one.AddScaler(c.MakeNumeric(1))
+	one.AddScalar(c.MakeNumeric(1))
 	cost.Propagate(one, grad)
 
 	return grad
